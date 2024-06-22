@@ -154,25 +154,26 @@ class SSAlignmentFlowLayout: UICollectionViewFlowLayout {
                     sectionElement.footerReferenceSize = footerSize
                     hasFooter = true
                 }
-                if hasHeader {
-                    let headerAttr = UICollectionViewLayoutAttributes(forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, with: IndexPath(row: 0, section: section))
-                    sectionElement.header = headerAttr
-                    attrCache.append(headerAttr)
-                }
-                if hasFooter {
-                    let footerAttr = UICollectionViewLayoutAttributes(forSupplementaryViewOfKind: UICollectionView.elementKindSectionFooter, with: IndexPath(row: 0, section: section))
-                    sectionElement.footer = footerAttr
-                    attrCache.append(footerAttr)
-                }
             }
-            sectionElements.append(sectionElement)
+            if hasHeader {
+                let headerAttr = UICollectionViewLayoutAttributes(forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, with: IndexPath(row: 0, section: section))
+                sectionElement.headerLayoutAttrributes = headerAttr
+                attrCache.append(headerAttr)
+            }
+            if hasFooter {
+                let footerAttr = UICollectionViewLayoutAttributes(forSupplementaryViewOfKind: UICollectionView.elementKindSectionFooter, with: IndexPath(row: 0, section: section))
+                sectionElement.footerLayoutAttrributes = footerAttr
+                attrCache.append(footerAttr)
+            }
+            if hasHeader || hasFooter || collectionView.numberOfItems(inSection: section) > 0 {
+                sectionElements.append(sectionElement)
+            }
         }
 
         attrCache = prefetchAllItems()
     }
 
     override func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
-        super.layoutAttributesForElements(in: rect)
         var visibleAttrs: [UICollectionViewLayoutAttributes] = []
         for attr in attrCache {
             if attr.frame.intersects(rect) {
@@ -221,7 +222,7 @@ class SSAlignmentFlowLayout: UICollectionViewFlowLayout {
             }
             offset = sectionElement.locateLines(fixedSize: fixedSizeValue, offset: offset)
             offset = sectionElement.locateFooter(offset: offset)
-            attrs += sectionElement.attrs
+            allLayoutAttributesList += sectionElement.cellsLayoutAttrributesList
             if let headerAttr = sectionElement.header {
                 attrs.append(headerAttr)
             }
@@ -264,10 +265,10 @@ class SSAlignmentFlowLayout: UICollectionViewFlowLayout {
 }
 
 fileprivate class FixedSpacingSectionElement {
-    var header: UICollectionViewLayoutAttributes?
-    var footer: UICollectionViewLayoutAttributes?
     var lines: [FixedSpacingLineElement] = []
-    var attrs: [UICollectionViewLayoutAttributes] = []
+    var headerLayoutAttrributes: UICollectionViewLayoutAttributes?
+    var footerLayoutAttrributes: UICollectionViewLayoutAttributes?
+    var cellsLayoutAttrributesList: [UICollectionViewLayoutAttributes] = []
     var cellsRect: CGRect = .zero
     var sectionSize: CGSize {
         get {
@@ -343,6 +344,7 @@ fileprivate class FixedSpacingSectionElement {
                 xOffset += (line.maxSizeValue + fixedLineSpacing)
             }
             lineIndex += 1
+            cellsLayoutAttrributesList.append(contentsOf: line.layoutAttributesList)
         }
         switch alignment {
         case .left, .center, .right:
@@ -385,10 +387,9 @@ fileprivate class FixedSpacingLineElement {
             }
         }
     }
-    var items: [UICollectionViewLayoutAttributes] = []
+    var layoutAttributesList: [UICollectionViewLayoutAttributes] = []
 
-    func locateItems(xOffset: CGFloat, yOffset: CGFloat) -> [UICollectionViewLayoutAttributes] {
-        var attrs: [UICollectionViewLayoutAttributes] = []
+    func locateItems(xOffset: CGFloat, yOffset: CGFloat) {
         var xPos: CGFloat = xOffset
         var yPos: CGFloat = yOffset
         // offset 초기화
@@ -399,16 +400,14 @@ fileprivate class FixedSpacingLineElement {
             yPos = sectionInset.top + startingOffset
         }
         // 각 attribute들 x, y값 새로 지정하여 보관한다.
-        for item in items {
-            let attr = UICollectionViewLayoutAttributes(forCellWith: item.indexPath)
-            attr.frame = CGRect(x: xPos, y: yPos, width: item.size.width, height: item.size.height)
+        for layoutAttributes in layoutAttributesList {
+            layoutAttributes.frame = CGRect(x: xPos, y: yPos, width: layoutAttributes.size.width, height: layoutAttributes.size.height)
             switch alignment {
             case .left, .center, .right:
-                xPos += (item.size.width + itemSpacing)
+                xPos += (layoutAttributes.size.width + itemSpacing)
             case .top, .middle, .bottom:
-                yPos += (item.size.height + itemSpacing)
+                yPos += (layoutAttributes.size.height + itemSpacing)
             }
-            attrs.append(attr)
         }
         return attrs
     }
